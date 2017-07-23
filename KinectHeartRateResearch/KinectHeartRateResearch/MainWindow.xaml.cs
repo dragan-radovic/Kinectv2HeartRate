@@ -81,7 +81,8 @@ namespace KinectHeartRateResearch
             engine = REngine.GetInstance();
             engine.Initialize();
             var currentDir = System.Environment.CurrentDirectory.Replace('\\', '/');
-            if (!m_JADE_Loaded)
+            m_JADE_Loaded = !(engine.Evaluate("library('JADE')").IsInvalid);
+      if (!m_JADE_Loaded)
             {
                
                 engine.Evaluate("install.packages('JADE', repos='http://cran.us.r-project.org')");
@@ -140,54 +141,69 @@ namespace KinectHeartRateResearch
         }
 
 
-        private void ProcessData()
-        {
-            var currentDir = System.Environment.CurrentDirectory.Replace('\\', '/');
-#if DEBUG_TEST
+private void ProcessData()
+{
+      var currentDir = System.Environment.CurrentDirectory.Replace('\\', '/');
+      bool errorOccured = false;
+      try
+      {
+      #if DEBUG_TEST
                 engine.Evaluate(string.Format("heartRateData <- read.csv('{0}/NormHeartRate_r61.csv')", currentDir.Replace('\\', '/')));
-#else
+      #else
 
-            engine.Evaluate(string.Format("heartRateData <- read.csv('{0}')", m_filePath.Replace('\\', '/')));
-#endif
-                engine.Evaluate(string.Format("source('{0}/RScripts/KinectHeartRate_JADE.r')", currentDir));
+        engine.Evaluate(string.Format("heartRateData <- read.csv('{0}')", m_filePath.Replace('\\', '/')));
+      #endif
+        engine.Evaluate(string.Format("source('{0}/RScripts/KinectHeartRate_JADE.r')", currentDir));
+      }
+      catch (Exception e)
+      {
+        errorOccured = true;
+        
+      }
 
-            //HR1 and HR4 are band filtered to match frequency of normal heart rate range
-            //HR2 and HR3 are not and included incase your environment has closer matches to these frequencies which were seperated
-            NumericVector hrVect1 = engine.GetSymbol("hr1").AsNumeric();            
-            NumericVector hrVect4 = engine.GetSymbol("hr4").AsNumeric();
+      if (errorOccured)
+      {
+        lblRate.Text = "DR: An error occured, please try again.";
+      }
+      else
+      {
+        //HR1 and HR4 are band filtered to match frequency of normal heart rate range
+        //HR2 and HR3 are not and included incase your environment has closer matches to these frequencies which were seperated
+        NumericVector hrVect1 = engine.GetSymbol("hr1").AsNumeric();
+        NumericVector hrVect4 = engine.GetSymbol("hr4").AsNumeric();
 
-            //In case your environment matches closer
-            NumericVector hrVect2 = engine.GetSymbol("hr2").AsNumeric();
-            NumericVector hrVect3 = engine.GetSymbol("hr3").AsNumeric();
+        //In case your environment matches closer
+        NumericVector hrVect2 = engine.GetSymbol("hr2").AsNumeric();
+        NumericVector hrVect3 = engine.GetSymbol("hr3").AsNumeric();
 
-            double hr1 = hrVect1.First();
-                double hr4 = hrVect4.First();
+        double hr1 = hrVect1.First();
+        double hr4 = hrVect4.First();
 
-            //incase you need these seperated frequencies
-            double hr2 = hrVect2.First();
-            double hr3 = hrVect3.First();
+        //incase you need these seperated frequencies
+        double hr2 = hrVect2.First();
+        double hr3 = hrVect3.First();
 
-                double hr = (hr1 > hr4) ? hr1 : hr4;
-                lblRate.Text = ((int)hr).ToString();
-                lblColorFeeds.Text = "Signal processed.";
+        double hr = (hr1 > hr4) ? hr1 : hr4;
+        lblRate.Text = ((int)hr).ToString();
+        lblColorFeeds.Text = "Signal processed.";
+      }
 
-            bool? isChecked = keepResults.IsChecked;
-            if (!isChecked.HasValue)
-            { 
-                System.IO.File.Delete(m_filePath);
-            }
-            else
-            {
-                if(!isChecked.Value )
-                {
-                    System.IO.File.Delete(m_filePath);
-                }
-            }
+      bool? isChecked = keepResults.IsChecked;
+      if (!isChecked.HasValue)
+      { 
+          System.IO.File.Delete(m_filePath);
+      }
+      else
+      {
+          if(!isChecked.Value )
+          {
+              System.IO.File.Delete(m_filePath);
+          }
+      }
+    }
 
-        }
-
-        private void btnCalculateRate_Click(object sender, RoutedEventArgs e)
-        {
+private void btnCalculateRate_Click(object sender, RoutedEventArgs e)
+{
 
 #if DEBUG_TEST
             ProcessData();
